@@ -1,4 +1,4 @@
-* [ ] add triangle objects
+* [x] add triangle objects
 * [ ] model the room
 * [ ] add metalic material
 * [ ] add textures
