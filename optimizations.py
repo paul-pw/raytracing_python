@@ -10,8 +10,8 @@ Vec = npt.NDArray[np.float64]
 Color = npt.NDArray[np.float64]
 
 
-def normalizeVector(vec: Vec):
-    return vec/np.linalg.norm(vec)
+def normalizeVector(vec: Vec, useAxis=None):
+    return vec/np.linalg.norm(vec, axis=useAxis, keepdims=True)
 
 
 def correctAndShowImage(img):
@@ -31,6 +31,10 @@ def reflect(inputVector: Vec, normal: Vec) -> Vec:
 
 def rayAt(ray, t):
     return ray[0] + t * ray[1]
+
+
+def raysAt(rays, t):
+    return rays[:, 0] + t[:, None] * rays[:, 1]
 
 
 class ImageSize(NamedTuple):
@@ -91,23 +95,45 @@ class Circle(Object):
         self.material = material
         super().__init__()
 
-    def hit(self, ray) -> Optional[ObjHit]:
-        location = ray[0]
-        direction = ray[1]
+    def _elemwiseDot(self, a, b):
+        return np.sum(a*b, axis=1)
+
+    def hit(self, rays):
+        locations = rays[:, 0]
+        directions = rays[:, 1]
+
+        # calculate b, c and delta
         a = 1
-        b = 2 * np.dot(direction, location - self.center)
-        c = np.linalg.norm(location - self.center) ** 2 - self.radius ** 2
+        b = 2 * self._elemwiseDot(directions, (locations - self.center))
+        c = np.linalg.norm(locations - self.center,
+                           axis=1) ** 2 - self.radius ** 2
         delta = b ** 2 - 4*a*c
-        if delta > 0:
-            t1 = (-b + np.sqrt(delta))/(2*a)
-            t2 = (-b - np.sqrt(delta))/(2*a)
-            # return only the first hit and only if its > 0
-            t = min(t1, t2)
-            t = t if t > 0 else max(t1, t2)
-            normal = normalizeVector(rayAt(ray,t) - self.center)
-            # Neu ^
-            return None if t <= 0 else ObjHit(t, self.material, normal)
-        return None
+        filter = np.full(c.shape, False)
+        filter[delta > 0] = True
+        delta = delta[filter]
+        b = b[filter]
+        c = c[filter]
+
+        # calculate t1 and t2
+        t1 = (-b + np.sqrt(delta))/(2*a)
+        t2 = (-b - np.sqrt(delta))/(2*a)
+
+        # take the correct t
+        tn = np.minimum(t1, t2)
+        tn = np.where(tn > 0.0, tn, np.maximum(t1, t2))
+
+        # init output variables
+        t = np.full(rays.shape[0], -1.0)
+        hitPoints = np.zeros((rays.shape[0], 3))
+        normals = np.zeros((rays.shape[0], 3))
+        material = np.full((rays.shape[0]), np.array(
+            [(self.material)], dtype="object"))
+
+        # set output variables
+        hitPoints[filter] = raysAt(rays[filter], tn)
+        normals[filter] = normalizeVector(hitPoints[filter] - self.center, 1)
+        t[filter] = tn
+        return (t, normals, hitPoints, material)
 
 
 class Triangle(Object):
@@ -209,15 +235,10 @@ def generateRays(camera):
 
 
 def hitObject(obj, rays):
-    rayCount = rays.shape[0]
-    hits = np.full((rays.shape[0]), np.array(
-        [(-1, None, None)], dtype="float64, object, object"))
-    for i in range(rayCount):
-        hit = obj.hit(rays[i])
-        if (hit):
-            hits[i] = (hit.t, hit.normal, hit.material)
+    t, normals, hitPoints, material = obj.hit(rays)
+    hits = np.array([(tn, n, m) for tn, n, m in zip(t, normals, material)],
+                    dtype="float64, object, object")
     return hits
-
 
 def filterMin(a, b):
     if (a[0] > 0):
@@ -250,12 +271,11 @@ def bounce(rays, objects):
 
         s1 = time.time()
         hits = np.array([filterMin(h, nh)
-                        for h, nh in zip(hits, newHits)])
+                         for h, nh in zip(hits, newHits)])
         e1 = time.time()
         print("hit filterMin: ", e1 - s1)
     end = time.time()
     print("bounce hit: ", end - start)
-
     start = time.time()
     rayFilter &= np.array([h[0] > 0 for h in hits])
     end = time.time()
@@ -272,6 +292,7 @@ def bounce(rays, objects):
         np.all(rays[rayFilter][:, 1] == 0, axis=1))
     end = time.time()
     print("bounce filter2: ", end - start)
+
     return (rays, rayFilter)
 
 
@@ -304,7 +325,7 @@ def render(camera: Camera, objects: list[Object], bounces: int = 5, itteration: 
                 img[x, y] += rays[x+y*width, 2]
         end = time.time()
         print("output: ", end - start)
-        #print(rays)
+        # print(rays)
     return img
 
 
@@ -343,6 +364,8 @@ cube = [
     # bottom
     Triangle(np.array([[50, 5, -5], [50, 5, 5], [60, 5, -5]]), cubeMaterial),
     Triangle(np.array([[50, 5, 5], [60, 5, 5], [60, 5, -5]]), cubeMaterial),
+
+
 ]
 
 objects2: list[Object] = [Circle(np.array([0, 5000, 0]), 4990, Lambert([0.5, 0.5, 0.7])),
@@ -351,12 +374,12 @@ objects2: list[Object] = [Circle(np.array([0, 5000, 0]), 4990, Lambert([0.5, 0.5
                           *cube
                           ]
 
-camera = Camera(ImageSize(128, 256), np.array([1, 0, 0]), np.array([1, 0, 0]))
+camera = Camera(ImageSize(64, 128), np.array([1, 0, 0]), np.array([1, 0, 0]))
 start = time.time()
-img = render(camera, objects1, 5, 5)
+img = render(camera, objects1, 5, 1)
 end = time.time()
 print("Time consumed in working: ", end - start)
 correctAndShowImage(img)
 plt.pause(60)
-#img = render(camera,objects, 2)
+# img = render(camera,objects, 2)
 # correctAndShowImage(img)
