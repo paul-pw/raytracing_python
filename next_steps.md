@@ -5,6 +5,6 @@
   * [x] https://blog.thomaspoulet.fr/uniform-sampling-on-unit-hemisphere/
 * [ ] model the room
 * [ ] add textures
-* [ ] (analyze performance issues)
-  * [ ] improve performance
+* [x] (analyze performance issues)
+  * [x] improve performance
 * [ ] add glass
