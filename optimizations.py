@@ -164,7 +164,6 @@ class Triangle(Object):
         filter[dn==0] = False
         
         # calculate all Values for t
-        print(self.a,self.normal, directions,filter, self.normal)
         t[filter] = elemwiseDot(self.a - locations[filter], self.normal)/dn
         # calculate the hit point
         hitPoints[filter] = raysAt(rays[filter], t)
@@ -246,15 +245,23 @@ class Emissive(Material):
 # =============
 
 
-def generateRays(camera):
+def generateRays(camera,itterations):
     width = camera.imageSize.width
     height = camera.imageSize.height
-    rays = np.zeros((height*width, 3, 3))
+    rays = np.zeros((height*width*itterations, 3, 3))
     for x in range(width):
         for y in range(height):
-            rays[x+y*width] = camera._getRay(x, y)
+            for j in range(itterations):
+                rays[x+y*width+j*width*height] = camera._getRay(x, y)
     return rays
 
+def createImage(rays, width, height, itterations):
+    img = np.zeros((width, height, 3))
+    for x in range(width):
+        for y in range(height):
+            for j in range(itterations):
+                img[x, y] += rays[x+y*width+j*width*height, 2]
+    return img
 
 def hitObject(obj, rays):
     t, normals, hitPoints, material = obj.hit(rays)
@@ -300,7 +307,7 @@ def bounce(rays, objects):
     print("bounce hit: ", end - start)
     start = time.time()
     rayFilter &= np.array([h[0] > 0 for h in hits])
-    
+
     # if everything is filtered out return
     if(not np.any(rayFilter)):
         return (rays, rayFilter)
@@ -309,7 +316,6 @@ def bounce(rays, objects):
     print("bounce filter1: ", end - start)
 
     start = time.time()
-    print(hits[rayFilter], rays[rayFilter])
     rays[rayFilter] = np.array([rayFromHit(ray, hit)
                                 for hit, ray in zip(hits[rayFilter], rays[rayFilter])])
     end = time.time()
@@ -324,39 +330,34 @@ def bounce(rays, objects):
     return (rays, rayFilter)
 
 
-def render(camera: Camera, objects: list[Object], bounces: int = 5, itteration: int = 1):
-    img = np.zeros((camera.imageSize.width, camera.imageSize.height, 3))
-
+def render(camera: Camera, objects: list[Object], bounces: int = 5, itterations: int = 1):
     width = camera.imageSize.width
     height = camera.imageSize.height
 
-    for j in range(itteration):
-        start = time.time()
-        rays = generateRays(camera)
-        rayFilter = np.full(rays.shape[0], True)
-        end = time.time()
-        print("Init: ", end - start)
+    
+    start = time.time()
+    rays = generateRays(camera,itterations)
+    rayFilter = np.full(rays.shape[0], True)
+    end = time.time()
+    print("Init: ", end - start)
 
-        s1 = time.time()
-        for i in range(bounces):
-            start = time.time()
-            rays[rayFilter], rayFilter[rayFilter] = bounce(
-                rays[rayFilter], objects)
-            # if everything is filtered out break the loop
-            if (not np.any(rayFilter)):
-                break
-            end = time.time()
-            print("bounce: ", i, end - start)
-        end = time.time()
-        print("bounces: ", end - s1)
-
+    s1 = time.time()
+    for i in range(bounces):
         start = time.time()
-        for x in range(width):
-            for y in range(height):
-                img[x, y] += rays[x+y*width, 2]
+        rays[rayFilter], rayFilter[rayFilter] = bounce(
+            rays[rayFilter], objects)
+        # if everything is filtered out break the loop
+        if (not np.any(rayFilter)):
+            break
         end = time.time()
-        print("output: ", end - start)
-        # print(rays)
+        print("bounce: ", i, end - start)
+    end = time.time()
+    print("bounces: ", end - s1)
+
+    start = time.time()
+    img = createImage(rays, width,height, itterations)
+    print("output: ", end - start)
+    # print(rays)
     return img
 
 
@@ -405,101 +406,156 @@ objects2: list[Object] = [Circle(np.array([0, 5000, 0]), 4990, Lambert([0.5, 0.5
                           *cube
                           ]
 
-#camera = Camera(ImageSize(128, 256), np.array([1, 0, 0]), np.array([1, 0, 0]))
-#start = time.time()
-#img = render(camera, objects2, 5, 5)
-#end = time.time()
+camera = Camera(ImageSize(128, 256), np.array([1, 0, 0]), np.array([1, 0, 0]), np.array([0,0,1]))
+start = time.time()
+img = render(camera, objects1, 5, 5)
+end = time.time()
 #print("Time consumed in working: ", end - start)
 #correctAndShowImage(img)
 #plt.pause(60)
 # img = render(camera,objects, 2)
 # correctAndShowImage(img)
 
-camera = Camera(ImageSize(128, 128), np.array([278,273,-800]), np.array([0,0,1]), np.array([0,1,0]))
 white = Lambert([0.8, 0.8, 0.8])
 light = Emissive([500, 500, 500])
-green = Lambert([0.5, 1, 0.5])
-red = Lambert([1,0.5,0.5])
+green = Lambert([0.5, 0.9, 0.5])
+red = Lambert([0.9,0.5,0.5])
 
-floor = [
-    Triangle(np.array([
-        [552.8, 000.0, 000.0],
-        [000.0, 000.0, 000.0],
-        [000.0, 000.0, 559.2]
+
+def Plane(points, material):
+    return [
+        Triangle(np.array([
+            np.array(points[0]),
+            np.array(points[1]),
+            np.array(points[2]),
+        ]), material),
+        Triangle(np.array([
+            np.array(points[2]),
+            np.array(points[3]),
+            np.array(points[0]),
+        ]), material),
+    ]
+
+floor = Plane(np.array([
+    [552.8, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 559.2],
+    [549.6, 0.0, 559.2]
+]),
+    white)
+
+light = Plane(np.array([
+    [343.0, 548.7, 227.0],
+    [343.0, 548.7, 332.0],
+    [213.0, 548.7, 332.0],
+    [213.0, 548.7, 227.0]
+]),
+    light)
+
+ceiling = Plane(np.array([
+    [556.0, 548.8, 0.0],
+    [556.0, 548.8, 559.2],
+    [0.0, 548.8, 559.2],
+    [0.0, 548.8,   0.0]
+]),
+    white)
+
+backWall = Plane(np.array([
+    [549.6,   0.0, 559.2],
+    [0.0, 0.0, 559.2],
+    [0.0, 548.8, 559.2],
+    [556.0, 548.8, 559.2]
+]),
+    white)
+
+rightWall = Plane(np.array([
+    [0.0, 0.0, 559.2],
+    [0.0, 0.0, 0.0],
+    [0.0, 548.8, 0.0],
+    [0.0, 548.8, 559.2]
+]),
+    green)
+
+leftWall = Plane(np.array([
+    [552.8,   0.0,   0.0],
+    [549.6,   0.0, 559.2],
+    [556.0, 548.8, 559.2],
+    [556.0, 548.8,   0.0]
+]),
+    red)
+
+shortBlock = [
+    *Plane(np.array([
+        [130.0, 165.0,  65.0],
+        [82.0, 165.0, 225.0],
+        [240.0, 165.0, 272.0],
+        [290.0, 165.0, 114.0]
     ]), white),
-    Triangle(np.array([
-        [000.0, 000.0, 559.2],
-        [549.6, 000.0, 559.2],
-        [552.8, 000.0, 000.0]
+    *Plane(np.array([
+        [290.0,   0.0, 114.0],
+        [290.0, 165.0, 114.0],
+        [240.0, 165.0, 272.0],
+        [240.0,   0.0, 272.0]
+    ]), white),
+    *Plane(np.array([
+        [130.0,   0.0,  65.0],
+        [130.0, 165.0,  65.0],
+        [290.0, 165.0, 114.0],
+        [290.0,   0.0, 114.0]
+    ]), white),
+    *Plane(np.array([
+        [82.0,   0.0, 225.0],
+        [82.0, 165.0, 225.0],
+        [130.0, 165.0,  65.0],
+        [130.0,   0.0,  65.0]
+    ]), white),
+    *Plane(np.array([
+        [240.0,   0.0, 272.0],
+        [240.0, 165.0, 272.0],
+        [82.0, 165.0, 225.0],
+        [82.0,   0.0, 225.0]
     ]), white)
 ]
 
-light = [
-    Triangle(np.array([
-        [343.0, 548.8, 227.0],
-        [343.0, 548.8, 332.0],
-        [213.0, 548.8, 332.0]
-    ]), light),
-    Triangle(np.array([
-        [213.0, 548.8, 332.0],
-        [213.0, 548.8, 227.0],
-        [343.0, 548.8, 227.0]
-    ]), light)
-]
-
-ceiling = [
-    Triangle(np.array([
-        [556.0, 548.8, 000.0],
-        [556.0, 548.8, 559.2],
-        [000.0, 548.8, 559.2]
+tallBlock = [
+    *Plane(np.array([
+        [423.0, 330.0, 247.0],
+        [265.0, 330.0, 296.0],
+        [314.0, 330.0, 456.0],
+        [472.0, 330.0, 406.0]
     ]), white),
-    Triangle(np.array([
-        [000.0, 548.8, 559.2],
-        [000.0, 548.8, 000.0],
-        [556.0, 548.8, 000.0]
+    *Plane(np.array([
+        [423.0,   0.0, 247.0],
+        [423.0, 330.0, 247.0],
+        [472.0, 330.0, 406.0],
+        [472.0,   0.0, 406.0]
+    ]), white),
+    *Plane(np.array([
+        [472.0,   0.0, 406.0],
+        [472.0, 330.0, 406.0],
+        [314.0, 330.0, 456.0],
+        [314.0,   0.0, 456.0]
+    ]), white),
+    *Plane(np.array([
+        [314.0,   0.0, 456.0],
+        [314.0, 330.0, 456.0],
+        [265.0, 330.0, 296.0],
+        [265.0,   0.0, 296.0]
+    ]), white),
+    *Plane(np.array([
+        [265.0,   0.0, 296.0],
+        [265.0, 330.0, 296.0],
+        [423.0, 330.0, 247.0],
+        [423.0,   0.0, 247.0]
     ]), white)
 ]
 
-backWall = [
-    Triangle(np.array([
-        [549.6, 000.0, 559.2],
-        [000.0, 000.0, 559.2],
-        [000.0, 548.8, 559.2]
-    ]), white),
-    Triangle(np.array([
-        [000.0, 548.8, 559.2],
-        [556.0, 548.8, 559.2],
-        [549.6, 000.0, 559.2]
-    ]), white)
-]
 
-rightWall = [
-    Triangle(np.array([
-        [000.0, 000.0, 559.2],
-        [000.0, 000.0, 000.0],
-        [000.0, 548.8, 000.0]
-    ]), green),
-    Triangle(np.array([
-        [000.0, 548.8, 000.0],
-        [000.0, 548.8, 559.2],
-        [000.0, 000.0, 559.2]
-    ]), green)
-]
+objects: list[Object] = [*floor, *
+                         ceiling, *backWall, *leftWall, *shortBlock, *tallBlock]#,*light]
 
-leftWall = [
-    Triangle(np.array([
-        [552.8, 000.0, 000.0],
-        [549.6, 000.0, 559.2],
-        [556.0, 548.8, 559.2]
-    ]), red),
-    Triangle(np.array([
-        [556.0, 548.8, 559.2],
-        [556.0, 548.8, 000.0],
-        [552.8, 000.0, 000.0]
-    ]), red)
-]
+camera = Camera(ImageSize(128, 128), np.array([278,273,-800]), np.array([0,0,1]), np.array([0,1,0]))
+img = render(camera,objects, 2,2)
 
-
-objects: list[Object] = [*rightWall]
-
-img = render(camera,objects, 2)
+correctAndShowImage(img)
+plt.pause(60)
