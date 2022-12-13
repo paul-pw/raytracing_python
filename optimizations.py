@@ -554,8 +554,8 @@ tallBlock = [
 objects: list[Object] = [*floor, *
                          ceiling, *backWall, *leftWall, *shortBlock, *tallBlock]#,*light]
 
-camera = Camera(ImageSize(128, 128), np.array([278,273,-800]), np.array([0,0,1]), np.array([0,1,0]))
-img = render(camera,objects, 2,2)
+camera = Camera(ImageSize(1080, 1080), np.array([278,273,-800]), np.array([0,0,1]), np.array([0,1,0]))
+img = render(camera,objects, 4,20)
 
 correctAndShowImage(img)
 plt.pause(60)
