@@ -459,8 +459,8 @@ rightWall = Plane(np.array([0.0, 0.0, 0.0]),
 
 leftWall = Plane(np.array([549.6,   0.0, 559.2]),
                  np.array([
-                     [3.2,   0.0,   -559.2],
-                     [6.4, 548.8, 0.0]
+                     [0.0,   0.0,   -559.2],
+                     [0.0, 548.8, 0.0]
                  ]), red)
 
 shortBlock = Block(np.array([500.0, 165.0, 200.0]),
@@ -477,8 +477,8 @@ tallBlock = Block(np.array([290.0, 330.0, 406.0]),
                       [0.0, -330.0, 0.0]
                   ]), white)
 
-objects: list[Object] = [*floor, *light, *ceiling, *
-                         backWall, *rightWall, *leftWall, *shortBlock, *tallBlock]
+objects: list[Object] = [*floor, *light, *ceiling, *light,
+                         *backWall, *rightWall, *leftWall, *shortBlock, *tallBlock]
 
 
 width = int(input("Width: "))
@@ -487,7 +487,7 @@ bounces = int(input("Bounces: "))
 itterations = int(input("Ray Multiplier: "))
 
 camera = Camera(ImageSize(width, height), np.array(
-    [278, 273, -800]), np.array([0, 0, 1]), np.array([0, 1, 0]))
+    [278, 273, -800]), np.array([0, 0, 1.1]), np.array([0, 1, 0]))
 
 # ====================== RENDER...
 itteration = 0

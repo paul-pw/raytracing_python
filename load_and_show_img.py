@@ -15,7 +15,6 @@ data = [
     '1670852602-cornell_box_linear_data.npz',
     '1670852616-cornell_box_linear_data.npz',
     '1670852682-cornell_box_linear_data.npz'
-
 ]
 
 loaded = np.load(data[0])
