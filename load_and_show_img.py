@@ -4,10 +4,28 @@ from scipy import ndimage
 from PIL import Image
 import time
 
-loaded = np.load('1670834303-cornell_box_linear_data.npz')
+data = [
+    '1670848078-cornell_box_linear_data.npz',
+    '1670848645-cornell_box_linear_data.npz',
+    '1670848685-cornell_box_linear_data.npz',
+    '1670866387-cornell_box_linear_data.npz',
+    '1670866419-cornell_box_linear_data.npz',
+    '1670866484-cornell_box_linear_data.npz',
+    '1670852590-cornell_box_linear_data.npz',
+    '1670852602-cornell_box_linear_data.npz',
+    '1670852616-cornell_box_linear_data.npz',
+    '1670852682-cornell_box_linear_data.npz'
 
-print(loaded["image"])
-img = loaded["image"]
+]
+
+loaded = np.load(data[0])
+img = np.zeros(loaded["image"].shape)
+
+
+for d in data:
+    loaded = np.load(d)
+    img += loaded["image"]
+
 i = ndimage.rotate(img, -90)
 m = np.max(img)/5
 i = np.power((i/m), 0.45)
