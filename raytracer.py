@@ -422,10 +422,10 @@ def Block(origin, directions, material):
 
 
 white = Lambert([0.8, 0.8, 0.8])
-light = Emissive([500, 500, 500])
-blue = Lambert([0.5, 0.5, 1])
-red = Lambert([1, 0.5, 0.5])
-yellow = Lambert([1, 1, 0.5])
+light = Emissive([1000, 1000, 1000])
+blue = Lambert([0.1, 0.1, 0.9])
+red = Lambert([0.9, 0.1, 0.1])
+yellow = Lambert([0.9, 0.9, 0.1])
 
 floor = Plane(np.array([0.0, 0.0, 0.0]),
               np.array([
@@ -475,7 +475,7 @@ tallBlock = Block(np.array([290.0, 330.0, 406.0]),
                       [-49.0, 0.0, -159.0],
                       [-158.0, 0.0, 50.0],
                       [0.0, -330.0, 0.0]
-                  ]), blue)
+                  ]), white)
 
 objects: list[Object] = [*floor, *light, *ceiling, *
                          backWall, *rightWall, *leftWall, *shortBlock, *tallBlock]
