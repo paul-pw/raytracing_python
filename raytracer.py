@@ -505,7 +505,7 @@ try:
             '{}-cornell_box_linear_data'.format(now), image=img)
 
         i = ndimage.rotate(img, -90)
-        m = np.max(img)/5
+        m = np.max(img)/10
         i = np.power((i/m), 0.45)
         i = np.clip(i, 0, 1)
         # save plot
